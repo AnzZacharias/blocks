@@ -7,6 +7,9 @@ public class GameBoard {
 	private Block[][] blocks;
 	
 	public GameBoard(int width, int height) {
+		if (width < 1 || height < 1) {
+			throw new IllegalArgumentException("Gameboard size is too small");
+		}
 		this.width = width;
 		this.height = height;
 		blocks = new Block[height][width];

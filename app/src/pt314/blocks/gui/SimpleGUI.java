@@ -5,6 +5,13 @@ import java.awt.Dimension;
 import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.ListIterator;
+import java.util.Random;
+import java.util.Scanner;
 
 import javax.swing.JButton;
 import javax.swing.JFrame;
@@ -25,56 +32,93 @@ import pt314.blocks.game.VerticalBlock;
  */
 public class SimpleGUI extends JFrame implements ActionListener {
 
-	private static final int NUM_ROWS = 5;
-	private static final int NUM_COLS = 5;
+	private static int numRows;
+	private static int numCols;
 
 	private GameBoard board;
-	
+	private static char[][] puzzleMatrix = null; 
 	// currently selected block
 	private Block selectedBlock;
 	private int selectedBlockRow;
 	private int selectedBlockCol;
 
 	private GridButton[][] buttonGrid;
-	
+
 	private JMenuBar menuBar;
 	private JMenu gameMenu, helpMenu;
 	private JMenuItem newGameMenuItem;
 	private JMenuItem exitMenuItem;
 	private JMenuItem aboutMenuItem;
-	
+
 	public SimpleGUI() {
 		super("Blocks");
-		
+		readFile();
 		initMenus();
-		
 		initBoard();
-		
 		pack();
 		setVisible(true);
 		setDefaultCloseOperation(DISPOSE_ON_CLOSE);
 	}
 
+	private void readFile() {
+		Scanner scanner = null;
+		/*
+		 * Pick and read the files randomly from puzzle folder		
+		 */
+		try{
+			Random r = new Random();
+			int randomNumber = r.nextInt(12345678);
+			int fileNumber = randomNumber % 6;
+			StringBuilder fileName = new StringBuilder("res/puzzles/puzzle-00");
+			fileName.append(fileNumber);
+			fileName.append(".txt");
+			File puzzleFile =new File(fileName.toString());
+			scanner = new Scanner(puzzleFile);
+		}
+		catch (IOException e) {
+			JOptionPane.showMessageDialog(null, "Error loading the game", "Error",JOptionPane.ERROR_MESSAGE);
+		}
+
+		List<String> inputFileList = new ArrayList<String>();
+		while (scanner.hasNextLine()) {
+			inputFileList.add(scanner.nextLine());
+		}
+		scanner.close();
+
+		String[] puzzleDimensions = inputFileList.get(0).split(" ");
+		numRows = Integer.parseInt(puzzleDimensions[0]);
+		numCols = Integer.parseInt(puzzleDimensions[1]);
+		puzzleMatrix = new char[numRows][numCols];
+
+		int lineCounter = 0;
+		for (int i = 1; i <=  numRows ; i++) {
+			String puzzleRow = inputFileList.get(i);
+			puzzleMatrix[lineCounter] = puzzleRow.substring(0, numCols).toCharArray();
+			lineCounter++;
+		}
+	}
+
 	private void initMenus() {
 		menuBar = new JMenuBar();
-		
+
 		gameMenu = new JMenu("Game");
 		menuBar.add(gameMenu);
-		
+
 		helpMenu = new JMenu("Help");
 		menuBar.add(helpMenu);
-		
+
 		newGameMenuItem = new JMenuItem("New game");
 		newGameMenuItem.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				JOptionPane.showMessageDialog(SimpleGUI.this, "Coming soon...");
+				SimpleGUI.this.dispose();
+				new SimpleGUI();
 			}
 		});
 		gameMenu.add(newGameMenuItem);
-		
+
 		gameMenu.addSeparator();
-		
+
 		exitMenuItem = new JMenuItem("Exit");
 		exitMenuItem.addActionListener(new ActionListener() {
 			@Override
@@ -83,7 +127,7 @@ public class SimpleGUI extends JFrame implements ActionListener {
 			}
 		});
 		gameMenu.add(exitMenuItem);
-		
+
 		aboutMenuItem = new JMenuItem("About");
 		aboutMenuItem.addActionListener(new ActionListener() {
 			@Override
@@ -92,17 +136,17 @@ public class SimpleGUI extends JFrame implements ActionListener {
 			}
 		});
 		helpMenu.add(aboutMenuItem);
-		
+
 		setJMenuBar(menuBar);
 	}
-	
+
 	private void initBoard() {
-		board = new GameBoard(NUM_COLS, NUM_ROWS);
-		buttonGrid = new GridButton[NUM_ROWS][NUM_COLS];
-		
-		setLayout(new GridLayout(NUM_ROWS, NUM_COLS));
-		for (int row = 0; row < NUM_ROWS; row++) {
-			for (int col = 0; col < NUM_COLS; col++) {
+		board = new GameBoard(numCols, numRows);
+		buttonGrid = new GridButton[numRows][numCols];
+
+		setLayout(new GridLayout(numRows, numCols));
+		for (int row = 0; row < numRows; row++) {
+			for (int col = 0; col < numCols; col++) {
 				GridButton cell = new GridButton(row, col);
 				cell.setPreferredSize(new Dimension(64, 64));
 				cell.addActionListener(this);
@@ -111,32 +155,52 @@ public class SimpleGUI extends JFrame implements ActionListener {
 				add(cell);
 			}
 		}
-		
-		// add some blocks for testing...
-		board.placeBlockAt(new HorizontalBlock(), 0, 0);
-		board.placeBlockAt(new HorizontalBlock(), 4, 4);
-		board.placeBlockAt(new VerticalBlock(), 1, 3);
-		board.placeBlockAt(new VerticalBlock(), 3, 1);
-		board.placeBlockAt(new TargetBlock(), 2, 2);
-		
+
+		for (int row = 0; row < numRows; row++) {
+			for (int col = 0; col < numCols; col++) {
+				switch (puzzleMatrix[row][col]) {
+				case 'H':
+					board.placeBlockAt(new HorizontalBlock(), row, col);
+					break;
+				case 'V':
+					board.placeBlockAt(new VerticalBlock(), row, col);
+					break;
+				case 'T':
+					board.placeBlockAt(new TargetBlock(), row, col);
+					break;
+				default:
+					break;
+				} 
+			}
+		}
+
 		updateUI();
 	}
 
 	// Update display based on the state of the board...
 	// TODO: make this more efficient
 	private void updateUI() {
-		for (int row = 0; row < NUM_ROWS; row++) {
-			for (int col = 0; col < NUM_COLS; col++) {
+		for (int row = 0; row < numRows; row++) {
+			for (int col = 0; col < numCols; col++) {
 				Block block = board.getBlockAt(row, col);
 				JButton cell = buttonGrid[row][col];
-				if (block == null)
+				if (block == null){
+					cell.setText("");
 					cell.setBackground(Color.LIGHT_GRAY);
-				else if (block instanceof TargetBlock)
+				}
+				else if (block instanceof TargetBlock){
+					cell.setText("T");
 					cell.setBackground(Color.YELLOW);
-				else if (block instanceof HorizontalBlock)
+				}
+
+				else if (block instanceof HorizontalBlock){
+					cell.setText("H");
 					cell.setBackground(Color.BLUE);
-				else if (block instanceof VerticalBlock)
+				}
+				else if (block instanceof VerticalBlock){
+					cell.setText("V");
 					cell.setBackground(Color.RED);
+				}
 			}
 		}
 	}
@@ -160,12 +224,16 @@ public class SimpleGUI extends JFrame implements ActionListener {
 		int row = cell.getRow();
 		int col = cell.getCol();
 		System.out.println("Clicked (" + row + ", " + col + ")");
-		
+
 		if (selectedBlock == null || board.getBlockAt(row, col) != null) {
 			selectBlockAt(row, col);
 		}
 		else {
 			moveSelectedBlockTo(row, col);
+			Block block = board.getBlockAt(row, col);
+			if ((block instanceof TargetBlock) && col == (numCols - 1)){
+				JOptionPane.showMessageDialog(SimpleGUI.this, "Congratulations!!! you solved the puzzle");
+			}
 		}
 	}
 
@@ -186,25 +254,25 @@ public class SimpleGUI extends JFrame implements ActionListener {
 			selectedBlockCol = col;
 		}
 	}
-	
+
 	/**
 	 * Try to move the currently selected block to a specific location.
 	 * 
 	 * If the move is not possible, nothing happens.
 	 */
 	private void moveSelectedBlockTo(int row, int col) {
-		
+
 		int vertDist = row - selectedBlockRow;
 		int horzDist = col - selectedBlockCol;
-		
+
 		if (vertDist != 0 && horzDist != 0) {
 			System.err.println("Invalid move!");
 			return;
 		}
-		
+
 		Direction dir = getMoveDirection(selectedBlockRow, selectedBlockCol, row, col);
 		int dist = Math.abs(vertDist + horzDist);
-		
+
 		if (!board.moveBlock(selectedBlockRow, selectedBlockCol, dir, dist)) {
 			System.err.println("Invalid move!");
 		}
